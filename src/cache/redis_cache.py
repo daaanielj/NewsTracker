@@ -2,9 +2,9 @@
 RedisCache class for tracking seen news articles.
 """
 
+from typing import Optional
 import os
 import redis
-from typing import Optional
 from src.logger import Logger
 
 
