@@ -1,5 +1,5 @@
 def main():
-    print("Hello, world! 👋 from News Sentiment Bot")
+    print("Hello, world!")
 
 
 if __name__ == "__main__":
