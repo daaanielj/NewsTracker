@@ -1,7 +1,8 @@
 """
 Finnhub API wrapper for fetching news.
 """
-from typing import Optional,List, Dict
+
+from typing import Optional, List, Dict
 import requests
 from src.logger import Logger
 
@@ -9,7 +10,10 @@ logger = Logger.get("FinnhubAPI")
 
 BASE_URL = "https://finnhub.io/api/v1/news"
 
-def fetch_news(api_key: Optional[str], category: str = "general", max_items: int = 3) -> List[Dict]:
+
+def fetch_news(
+    api_key: Optional[str], category: str = "general", max_items: int = 3
+) -> List[Dict]:
     """
     Fetch the latest news from Finnhub.
 
@@ -29,7 +33,11 @@ def fetch_news(api_key: Optional[str], category: str = "general", max_items: int
         news = response.json()[:max_items]
         logger.info("Fetched %d news items.", len(news))
         for item in news:
-            logger.info("News: %s | URL: %s", item.get("headline", "No title"), item.get("url", "No URL"))
+            logger.info(
+                "News: %s | URL: %s",
+                item.get("headline", "No title"),
+                item.get("url", "No URL"),
+            )
         return news
     except requests.Timeout:
         logger.warning("Request to Finnhub timed out.")
