@@ -1,5 +1,5 @@
 """
-Testing the NewsRetrievalService class
+Testing the NewsService class
 """
 
 import sys
@@ -7,18 +7,17 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 import pytest
 
-# Add project root to sys.path so `src` can be imported
-sys.path.append(str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.news_retrieval_service import NewsRetrievalService
+from src.services.news_service import NewsService
 
 @pytest.fixture
-def news_service() -> NewsRetrievalService:
-    """Return a NewsRetrievalService instance for testing."""
-    return NewsRetrievalService(api_key="FAKE_KEY", max_items=3)
+def news_service() -> NewsService:
+    """Return a NewsService instance for testing."""
+    return NewsService(api_key="FAKE_KEY", max_items=3)
 
-@patch("src.news_retrieval_service.requests.get")
-def test_fetch_news_limits_to_max_items(mock_get, news_service: NewsRetrievalService):
+@patch("src.services.news_service.requests.get")
+def test_fetch_news_limits_to_max_items(mock_get, news_service: NewsService):
     """Test that fetch_news respects max_items limit."""
     mock_response = MagicMock()
     mock_response.json.return_value = [
@@ -36,15 +35,15 @@ def test_fetch_news_limits_to_max_items(mock_get, news_service: NewsRetrievalSer
     headlines = [item["headline"] for item in news]
     assert headlines == ["News 1", "News 2", "News 3"]
 
-@patch("src.news_retrieval_service.requests.get")
-def test_fetch_news_handles_timeout(mock_get, news_service: NewsRetrievalService):
+@patch("src.services.news_service.requests.get")
+def test_fetch_news_handles_timeout(mock_get, news_service: NewsService):
     """Test that fetch_news returns empty list on exception."""
     mock_get.side_effect = Exception("Timeout")
     news = news_service.fetch_news()
     assert news == []
 
-@patch("src.news_retrieval_service.requests.get")
-def test_fetch_news_handles_empty_response(mock_get, news_service: NewsRetrievalService):
+@patch("src.services.news_service.requests.get")
+def test_fetch_news_handles_empty_response(mock_get, news_service: NewsService):
     """Test that fetch_news returns empty list when API returns empty."""
     mock_response = MagicMock()
     mock_response.json.return_value = []
