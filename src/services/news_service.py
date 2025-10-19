@@ -62,7 +62,6 @@ class NewsService:
             if companies:
                 n["companies"] = list(companies)
                 processed.append(n)
-            processed.append(n)
         return processed
 
     async def fetch_news(self) -> List[Dict]:
