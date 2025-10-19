@@ -5,6 +5,7 @@ Entry point for testing the logger.
 """
 
 import sys
+import asyncio
 from pathlib import Path
 import os
 from dotenv import load_dotenv
@@ -29,7 +30,7 @@ SQL_USERNAME = str(os.getenv("SQL_USERNAME"))
 SQL_PASSWORD = str(os.getenv("SQL_PASSWORD"))
 
 
-def main():
+async def main():
     """entry point"""
 
     db = Database(
@@ -41,11 +42,12 @@ def main():
     company_parser = CompanyParserService(companies=COMPANIES)
 
     bot = DiscordBotService(db=db, channel_id=CHANNEL_ID)
-    bot.run(str(TOKEN))
+    service = NewsService(
+        interval=30, bot=bot, max_items=10, company_parser=company_parser
+    )
 
-    service = NewsService(interval=30, max_items=10, company_parser=company_parser)
-    service.run()
+    await asyncio.gather(bot.start(str(TOKEN)), service.run_async())
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

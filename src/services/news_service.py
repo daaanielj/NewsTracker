@@ -1,27 +1,21 @@
-"""
-news_service.py
-
-Handles periodic news retrieval using the Finnhub API and Redis-based caching.
-"""
-
+import asyncio
 import os
-import time
 from typing import Optional, List, Dict
 from src.logger import Logger
 from src.cache.redis_cache import RedisCache
 from src.api.finnhub_news_api import fetch_news
-from src.api.finnhub_company_api import fetch_company_profile
 from src.services.company_parser_service import CompanyParserService
 
 logger = Logger.get("NewsService")
 
 
 class NewsService:
-    """Service that periodically fetches news from Finnhub and caches seen ones."""
+    """Service that periodically fetches news from Finnhub and notifies Discord subscribers."""
 
     def __init__(
         self,
         company_parser: CompanyParserService,
+        bot=None,
         interval: int = 30,
         max_items: int = 10,
         api_key: Optional[str] = None,
@@ -34,58 +28,80 @@ class NewsService:
         self.news_cache = news_cache or RedisCache(namespace="news")
         self.company_cache = company_cache or RedisCache(namespace="company")
         self.company_parser = company_parser
+        self.bot = bot
 
         if not self.api_key:
             logger.warning("FINNHUB_API_KEY not set. News fetching will be disabled.")
 
     def validate_news(self, news: List[Dict]) -> List[Dict]:
-        """
-        Filter out already-seen news articles and mark new ones as seen.
-        """
+        """Filter out already-seen news articles."""
+        #  TODO: persist the id in a table in the db for cross sessions
+        #  or if the server shuts down, the id of the news should just be in
+        #  increasing order so there should be no reason to keep all the
+        #  ids in memory.
         new_items = []
         for item in news:
             key = item.get("id")
             if not key:
                 continue
-
             if self.news_cache.is_seen(key):
                 continue
-
             self.news_cache.mark_seen(key)
             new_items.append(item)
-            logger.info("New article: %s", item.get("headline", "No title"))
-
         return new_items
 
-    def validate_company(self, news: List[Dict]):
-        """Process the news by getting the ticker in the related field"""
-        # TODO: Cannot rely on the related field from the api because it
-        #       doesn't seem to be populated most of the time.
-        #      Instead, just use flashtext and parse the headline and summary for the company name
+    async def validate_company(self, news: List[Dict]) -> List[Dict]:
+        """Extract companies from headline + summary."""
+        processed = []
+        for n in news:
+            headline = n.get("headline", "") or ""
+            summary = n.get("summary", "") or ""
+            companies = set()
+            companies |= set(self.company_parser.extract_companies(headline))
+            companies |= set(self.company_parser.extract_companies(summary))
+            if companies:
+                n["companies"] = list(companies)
+                processed.append(n)
+            processed.append(n)
+        return processed
 
-        return True
-
-    def fetch_news(self) -> List[Dict]:
-        """Fetch and process news once."""
+    async def fetch_news(self) -> List[Dict]:
+        """Fetch, process, and notify new news."""
         if not self.api_key:
-            logger.warning("Skipping fetch — no API key configured.")
             return []
 
-        # call the api to get the most recent news
-        news = fetch_news(api_key=self.api_key, max_items=self.max_items)
+        news = await asyncio.to_thread(
+            fetch_news, api_key=self.api_key, max_items=self.max_items
+        )
         new_items = self.validate_news(news)
-        self.validate_company(new_items)
+        processed = await self.validate_company(new_items)
 
-        logger.info("Fetched %d new items out of %d total.", len(new_items), len(news))
-        return new_items
+        if processed:
+            await self.notify_subscribers(processed)
 
-    def run(self):
-        """Continuously fetch news at an interval."""
-        logger.info("News Service started. Running indefinitely...")
-        try:
-            while True:
-                self.fetch_news()
-                logger.info("Next fetch in %d seconds...", self.interval)
-                time.sleep(self.interval)
-        except KeyboardInterrupt:
-            logger.info("News Service stopped by user.")
+        logger.info("Fetched %d new items out of %d total.", len(processed), len(news))
+        return processed
+
+    async def notify_subscribers(self, articles: List[Dict]):
+        """Send new news articles to all subscribers via the Discord bot."""
+        if not self.bot:
+            logger.warning("No Discord bot attached; skipping notifications.")
+            return
+
+        for article in articles:
+            headline = article.get("headline", "")
+            url = article.get("url", "")
+            companies = ", ".join(article.get("companies", []))
+
+            message = f"**{headline}**\nCompanies: {companies}\n<{url}>"
+            try:
+                await self.bot.ping_users(message)
+            except Exception as e:
+                logger.error(f"Failed to broadcast article: {e}")
+
+    async def run_async(self):
+        """Run continuously."""
+        logger.info("News Service started.")
+        while True:
+            await self.fetch_news()
+            await asyncio.sleep(self.interval)
