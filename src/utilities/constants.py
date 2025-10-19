@@ -2,7 +2,7 @@
 Constants file
 """
 
-# have the name to ticker mapping in memory for now, not sure if any free apis provide the information
+# Currently used for seeding the db table
 COMPANIES = {
     "Nvidia": "NVDA",
     "Microsoft": "MSFT",

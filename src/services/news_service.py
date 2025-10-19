@@ -35,7 +35,7 @@ class NewsService:
 
     def validate_news(self, news: List[Dict]) -> List[Dict]:
         """Filter out already-seen news articles."""
-        #  TODO: persist the id in a table in the db for cross sessions
+        #  TODO: persist the news id in a table in the db for cross sessions
         #  or if the server shuts down, the id of the news should just be in
         #  increasing order so there should be no reason to keep all the
         #  ids in memory.

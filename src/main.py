@@ -39,7 +39,8 @@ async def main():
         username=SQL_USERNAME,
         password=SQL_PASSWORD,
     )
-    company_parser = CompanyParserService(companies=COMPANIES)
+
+    company_parser = CompanyParserService(db)
 
     bot = DiscordBotService(db=db, channel_id=CHANNEL_ID)
     service = NewsService(
