@@ -2,6 +2,7 @@
 import pyodbc
 
 
+# TODO: Refactor the repositories to extend this baserepository instead
 class BaseRepository:
     def __init__(self, server: str, database: str, username: str, password: str):
         self.server = server
@@ -13,10 +14,7 @@ class BaseRepository:
     def _connect(self):
         connection_string = (
             f"DRIVER={{ODBC Driver 17 for SQL Server}};"
-            f"SERVER={self.server};"
-            f"DATABASE={self.database};"
-            f"UID={self.username};"
-            f"PWD={self.password}"
+            f"SERVER={self.server};DATABASE={self.database};Trusted_Connection=yes;"
         )
         return pyodbc.connect(connection_string)
 
