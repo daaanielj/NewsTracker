@@ -5,6 +5,8 @@ from src.logger import Logger
 from src.cache.redis_cache import RedisCache
 from src.api.finnhub_news_api import fetch_news
 from src.services.company_parser_service import CompanyParserService
+from src.datalayer.connection import Database
+from src.datalayer.data_checkpoint_repository import DataCheckpointRepository
 
 logger = Logger.get("NewsService")
 
@@ -15,6 +17,7 @@ class NewsService:
     def __init__(
         self,
         company_parser: CompanyParserService,
+        db: Database,
         bot=None,
         interval: int = 30,
         max_items: int = 10,
@@ -29,25 +32,33 @@ class NewsService:
         self.company_cache = company_cache or RedisCache(namespace="company")
         self.company_parser = company_parser
         self.bot = bot
+        self.news_checkpoint_repo = DataCheckpointRepository(db)
 
         if not self.api_key:
             logger.warning("FINNHUB_API_KEY not set. News fetching will be disabled.")
 
     def validate_news(self, news: List[Dict]) -> List[Dict]:
-        """Filter out already-seen news articles."""
-        #  TODO: persist the news id in a table in the db for cross sessions
-        #  or if the server shuts down, the id of the news should just be in
-        #  increasing order so there should be no reason to keep all the
-        #  ids in memory.
+        """Filter out already-seen news articles using persisted checkpoint."""
+        source_name = "finnhub"
         new_items = []
+
+        last_seen_id = int(self.news_checkpoint_repo.get_last_id(source_name) or "0")
+        max_seen_id = last_seen_id
+
         for item in news:
-            key = item.get("id")
-            if not key:
+            news_id = item.get("id")
+            if not news_id:
                 continue
-            if self.news_cache.is_seen(key):
+            if news_id <= last_seen_id:
                 continue
-            self.news_cache.mark_seen(key)
+
+            self.news_cache.mark_seen(news_id)
             new_items.append(item)
+            max_seen_id = max(max_seen_id, news_id)
+
+        if max_seen_id > last_seen_id:
+            self.news_checkpoint_repo.update_last_id(source_name, str(max_seen_id))
+
         return new_items
 
     async def validate_company(self, news: List[Dict]) -> List[Dict]:

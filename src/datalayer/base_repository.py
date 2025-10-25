@@ -1,35 +1,34 @@
 # src/datalayer/base_repository.py
-import pyodbc
+from typing import Any, Iterable, Optional
+from src.datalayer.connection import Database
 
 
-# TODO: Refactor the repositories to extend this baserepository instead
 class BaseRepository:
-    def __init__(self, server: str, database: str, username: str, password: str):
-        self.server = server
-        self.database = database
-        self.username = username
-        self.password = password
-        self.conn = self._connect()
+    """Base repository that operates using a shared Database instance."""
 
-    def _connect(self):
-        connection_string = (
-            f"DRIVER={{ODBC Driver 17 for SQL Server}};"
-            f"SERVER={self.server};DATABASE={self.database};Trusted_Connection=yes;"
-        )
-        return pyodbc.connect(connection_string)
+    def __init__(self, db: Database):
+        self.db = db
 
-    def execute_query(self, query: str, params: tuple = ()):
-        with self.conn.cursor() as cursor:
-            cursor.execute(query, params)
-            self.conn.commit()
-            return cursor
+    def execute(
+        self, query: str, params: Optional[Iterable[Any]] = None, commit: bool = True
+    ):
+        """Execute INSERT, UPDATE, or DELETE queries."""
+        conn = self.db.connection
+        with conn.cursor() as cursor:
+            cursor.execute(query, params or ())
+            if commit:
+                conn.commit()
 
-    def fetch_all(self, query: str, params: tuple = ()):
-        with self.conn.cursor() as cursor:
-            cursor.execute(query, params)
+    def fetch_all(self, query: str, params: Optional[Iterable[Any]] = None):
+        """Run SELECT queries and fetch all results."""
+        conn = self.db.connection
+        with conn.cursor() as cursor:
+            cursor.execute(query, params or ())
             return cursor.fetchall()
 
-    def fetch_one(self, query: str, params: tuple = ()):
-        with self.conn.cursor() as cursor:
-            cursor.execute(query, params)
+    def fetch_one(self, query: str, params: Optional[Iterable[Any]] = None):
+        """Run SELECT queries and fetch one result."""
+        conn = self.db.connection
+        with conn.cursor() as cursor:
+            cursor.execute(query, params or ())
             return cursor.fetchone()
