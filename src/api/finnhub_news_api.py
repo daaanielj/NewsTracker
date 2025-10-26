@@ -32,12 +32,12 @@ def fetch_news(
         response.raise_for_status()
         news = response.json()[:max_items]
         logger.info("Fetched %d news items.", len(news))
-        for item in news:
-            logger.info(
-                "News: %s | URL: %s",
-                item.get("headline", "No title"),
-                item.get("url", "No URL"),
-            )
+        # for item in news:
+        #     logger.info(
+        #         "News: %s | URL: %s",
+        #         item.get("headline", "No title"),
+        #         item.get("url", "No URL"),
+        #     )
         return news
     except requests.Timeout:
         logger.warning("Request to Finnhub timed out.")
